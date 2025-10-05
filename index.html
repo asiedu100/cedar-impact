@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CEDAR IMPACT - Mentorship,Networking & Growth</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
+    <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-network-wired"></i>
+                <span>Cedar Impact</span>
+            </div>
+            <div class="nav-menu" id="nav-menu">
+                <a href="#home" class="nav-link">Home</a>
+                <a href="#events" class="nav-link">Events</a>
+                <a href="#attendance" class="nav-link">Attendance</a>
+                <a href="#admin" class="nav-link admin-only">Admin</a>
+                <div class="nav-auth">
+                    <button class="btn btn-outline" id="login-btn">Login</button>
+                    <button class="btn btn-primary" id="signup-btn">Sign Up</button>
+                    <button class="btn btn-danger" id="logout-btn" style="display: none;">Logout</button>
+                </div>
+            </div>
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="home" class="hero">
+        <div class="hero-content">
+            <h1>Welcome to Cedar Impact</h1>
+            <p>Mentorship, Networking, and Growth</p>
+            <div class="hero-buttons">
+                <button class="btn btn-primary btn-large" id="get-started">Get Started</button>
+                <button class="btn btn-outline btn-large" id="learn-more">Learn More</button>
+            </div>
+        </div>
+        <div class="hero-image">
+            <i class="fas fa-users fa-10x"></i>
+        </div>
+    </section>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Login</h2>
+                <span class="close" id="close-login">&times;</span>
+            </div>
+            <form id="login-form" class="auth-form">
+                <div class="form-group">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Login</button>
+                <p class="form-switch">Don't have an account? <a href="#" id="switch-to-signup">Sign up</a></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Signup Modal -->
+    <div id="signup-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Sign Up</h2>
+                <span class="close" id="close-signup">&times;</span>
+            </div>
+            <form id="signup-form" class="auth-form">
+                <div class="form-group">
+                    <label for="signup-name">Full Name</label>
+                    <input type="text" id="signup-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="signup-email">Email</label>
+                    <input type="email" id="signup-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="signup-gender">Gender</label>
+                    <select id="signup-gender" required>
+                        <option value="">Select Gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="signup-role">Role</label>
+                    <select id="signup-role" required>
+                        <option value="">Select Role</option>
+                        <option value="participant">Participant</option>
+                        <option value="executive">Executive</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="signup-password">Password</label>
+                    <input type="password" id="signup-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="signup-confirm">Confirm Password</label>
+                    <input type="password" id="signup-confirm" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Sign Up</button>
+                <p class="form-switch">Already have an account? <a href="#" id="switch-to-login">Login</a></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Events Section -->
+    <section id="events" class="events-section">
+        <div class="container">
+            <h2>Upcoming Events</h2>
+            <div class="events-grid" id="events-grid">
+                <!-- Events will be populated by JavaScript -->
+            </div>
+            <div class="create-event admin-only" id="create-event-section" style="display: none;">
+                <button class="btn btn-primary" id="create-event-btn">Create New Event</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Attendance Section -->
+    <section id="attendance" class="attendance-section">
+        <div class="container">
+            <h2>Event Attendance</h2>
+            <div class="qr-scanner" id="qr-scanner">
+                <div class="scanner-container">
+                    <video id="scanner-video" width="300" height="200"></video>
+                    <div class="scanner-overlay">
+                        <div class="scanner-box"></div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="start-scan">Start QR Scan</button>
+                <button class="btn btn-danger" id="stop-scan" style="display: none;">Stop Scan</button>
+            </div>
+            <div class="attendance-status" id="attendance-status"></div>
+        </div>
+    </section>
+
+    <!-- Admin Dashboard -->
+    <section id="admin" class="admin-section admin-only" style="display: none;">
+        <div class="container">
+            <h2>Admin Dashboard</h2>
+            <div class="admin-tabs">
+                <button class="tab-btn active" data-tab="events">Events</button>
+                <button class="tab-btn" data-tab="attendance">Attendance</button>
+                <button class="tab-btn" data-tab="analytics">Analytics</button>
+            </div>
+            
+            <div class="tab-content active" id="events-tab">
+                <div class="admin-events">
+                    <h3>Manage Events</h3>
+                    <button class="btn btn-primary" id="add-event-btn">Add Event</button>
+                    <div class="events-list" id="admin-events-list"></div>
+                </div>
+            </div>
+            
+            <div class="tab-content" id="attendance-tab">
+                <div class="attendance-management">
+                    <h3>Attendance Records</h3>
+                    <div class="attendance-filters">
+                        <select id="event-filter">
+                            <option value="">All Events</option>
+                        </select>
+                        <select id="role-filter">
+                            <option value="">All Roles</option>
+                            <option value="participant">Participants</option>
+                            <option value="executive">Executives</option>
+                        </select>
+                        <button class="btn btn-secondary" id="export-attendance">Export Data</button>
+                    </div>
+                    <div class="attendance-table-container">
+                        <table class="attendance-table" id="attendance-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Gender</th>
+                                    <th>Role</th>
+                                    <th>Event</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendance-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tab-content" id="analytics-tab">
+                <div class="analytics-dashboard">
+                    <h3>Gender Analytics</h3>
+                    <div class="analytics-cards">
+                        <div class="analytics-card">
+                            <h4>Total Attendance</h4>
+                            <div class="stat-number" id="total-attendance">0</div>
+                        </div>
+                        <div class="analytics-card">
+                            <h4>Male Percentage</h4>
+                            <div class="stat-number" id="male-percentage">0%</div>
+                        </div>
+                        <div class="analytics-card">
+                            <h4>Female Percentage</h4>
+                            <div class="stat-number" id="female-percentage">0%</div>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="gender-chart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Create Event Modal -->
+    <div id="create-event-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create Event</h2>
+                <span class="close" id="close-create-event">&times;</span>
+            </div>
+            <form id="create-event-form" class="auth-form">
+                <div class="form-group">
+                    <label for="event-name">Event Name</label>
+                    <input type="text" id="event-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="event-description">Description</label>
+                    <textarea id="event-description" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="event-date">Date</label>
+                    <input type="date" id="event-date" required>
+                </div>
+                <div class="form-group">
+                    <label for="event-time">Time</label>
+                    <input type="time" id="event-time" required>
+                </div>
+                <div class="form-group">
+                    <label for="event-location">Location</label>
+                    <input type="text" id="event-location" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Create Event</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
+
+
