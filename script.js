@@ -7,6 +7,8 @@ class CedarImpact {
         this.isAdmin = false;
         this.scanner = null;
         this.chart = null;
+        this.currentStream = null;
+        this.currentFacingMode = "environment"; // default to back camera on phones
         
         this.init();
     }
@@ -22,6 +24,7 @@ class CedarImpact {
         const savedUser = localStorage.getItem('cedarImpactUser');
         const savedEvents = localStorage.getItem('cedarImpactEvents');
         const savedAttendance = localStorage.getItem('cedarImpactAttendance');
+        const savedUsers = localStorage.getItem('cedarImpactUsers');
 
         if (savedUser) {
             this.currentUser = JSON.parse(savedUser);
@@ -31,6 +34,16 @@ class CedarImpact {
         try {
             if (savedEvents) {
                 this.events = JSON.parse(savedEvents);
+                // Backfill images for older saved events that don't have the image property
+                this.events.forEach(ev => {
+                    if (!ev.image) {
+                        if (ev.name && ev.name.toLowerCase().includes('ladies')) {
+                            ev.image = 'LADIESNEW.JPG';
+                        } else if (ev.name && ev.name.toLowerCase().includes('meetup')) {
+                            ev.image = 'MEETUP.JPG';
+                        }
+                    }
+                });
             }
 
             if (!this.events || this.events.length === 0) {
@@ -42,6 +55,18 @@ class CedarImpact {
 
         if (savedAttendance) {
             this.attendance = JSON.parse(savedAttendance);
+        }
+
+        if (savedUsers) {
+            try { this._users = JSON.parse(savedUsers); } catch { this._users = []; }
+        } else {
+            this._users = [];
+        }
+        const savedRequests = localStorage.getItem('cedarImpactRequests');
+        if (savedRequests) {
+            try { this._requests = JSON.parse(savedRequests); } catch { this._requests = []; }
+        } else {
+            this._requests = [];
         }
 
         this.generateQRCodes();
@@ -56,7 +81,8 @@ class CedarImpact {
                 date: '2025-02-15',
                 time: '18:00',
                 location: 'Impact Building, KNUST',
-                qrCode: null
+                qrCode: null,
+                image: 'MEETUP.JPG'
             },
             {
                 id: 2,
@@ -65,7 +91,8 @@ class CedarImpact {
                 date: '2025-02-20',
                 time: '19:00',
                 location: 'Casa Restaurant, Ahodwo',
-                qrCode: null
+                qrCode: null,
+                image: 'LADIESNEW.JPG'
             }
         ];
         this.saveEvents();
@@ -81,6 +108,19 @@ class CedarImpact {
 
     saveEvents() {
         localStorage.setItem('cedarImpactEvents', JSON.stringify(this.events));
+    }
+
+    // User storage helpers
+    getUsers() {
+        return this._users || [];
+    }
+
+    saveUsers() {
+        localStorage.setItem('cedarImpactUsers', JSON.stringify(this._users || []));
+    }
+
+    saveRequests() {
+        localStorage.setItem('cedarImpactRequests', JSON.stringify(this._requests || []));
     }
 
     // Event Listeners
@@ -106,12 +146,47 @@ class CedarImpact {
             this.showModal('login-modal');
         });
 
+        // Welcome modal buttons
+        const welcomeClose = document.getElementById('close-welcome');
+        if (welcomeClose) welcomeClose.addEventListener('click', () => this.hideModal('welcome-modal'));
+        const welcomeEvents = document.getElementById('welcome-events');
+        if (welcomeEvents) welcomeEvents.addEventListener('click', () => { this.hideModal('welcome-modal'); window.location.hash = '#events'; });
+        const welcomeDashboard = document.getElementById('welcome-dashboard');
+        if (welcomeDashboard) welcomeDashboard.addEventListener('click', () => { this.hideModal('welcome-modal'); window.location.hash = '#admin'; });
+        const welcomeLogout = document.getElementById('welcome-logout');
+        if (welcomeLogout) welcomeLogout.addEventListener('click', () => { this.hideModal('welcome-modal'); this.logout(); });
+    const requestAccessBtn = document.getElementById('request-access-btn');
+    if (requestAccessBtn) requestAccessBtn.addEventListener('click', () => this.showModal('request-access-modal'));
+    const closeRequest = document.getElementById('close-request');
+    if (closeRequest) closeRequest.addEventListener('click', () => this.hideModal('request-access-modal'));
+    const cancelRequest = document.getElementById('cancel-request');
+    if (cancelRequest) cancelRequest.addEventListener('click', () => this.hideModal('request-access-modal'));
+    const submitRequest = document.getElementById('submit-request');
+    if (submitRequest) submitRequest.addEventListener('click', () => this.submitAccessRequest());
+
+        // Show/hide admin code input when role is selected
+        const signupRoleEl = document.getElementById('signup-role');
+        if (signupRoleEl) {
+            signupRoleEl.addEventListener('change', (e) => {
+                const adminGroup = document.getElementById('signup-admin-code-group');
+                if (e.target.value === 'executive') {
+                    adminGroup.style.display = 'block';
+                } else {
+                    adminGroup.style.display = 'none';
+                }
+            });
+        }
+
         document.getElementById('login-form').addEventListener('submit', (e) => this.handleLogin(e));
         document.getElementById('signup-form').addEventListener('submit', (e) => this.handleSignup(e));
         document.getElementById('create-event-form').addEventListener('submit', (e) => this.handleCreateEvent(e));
 
         document.getElementById('start-scan').addEventListener('click', () => this.startQRScanner());
         document.getElementById('stop-scan').addEventListener('click', () => this.stopQRScanner());
+        const switchCameraBtn = document.getElementById('switch-camera');
+        if (switchCameraBtn) {
+            switchCameraBtn.addEventListener('click', () => this.switchCamera());
+        }
 
         document.getElementById('add-event-btn').addEventListener('click', () => this.showModal('create-event-modal'));
         document.getElementById('create-event-btn').addEventListener('click', () => this.showModal('create-event-modal'));
@@ -128,6 +203,11 @@ class CedarImpact {
         document.getElementById('export-attendance').addEventListener('click', () => this.exportAttendance());
         document.getElementById('hamburger').addEventListener('click', () => this.toggleMobileMenu());
 
+        const attendanceSelect = document.getElementById('attendance-event-select');
+        if (attendanceSelect) {
+            attendanceSelect.addEventListener('change', (e) => this.generateAttendanceQR(e.target.value));
+        }
+
         window.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal')) {
                 this.hideModal(e.target.id);
@@ -140,29 +220,25 @@ class CedarImpact {
         e.preventDefault();
         const email = document.getElementById('login-email').value;
         const password = document.getElementById('login-password').value;
-
         if (email && password) {
-            // Attempt to load existing user to preserve role if previously signed up
-            const saved = localStorage.getItem('cedarImpactUser');
-            let role = 'participant';
-            try {
-                const parsed = saved ? JSON.parse(saved) : null;
-                if (parsed && parsed.email === email && parsed.role) {
-                    role = parsed.role;
-                }
-            } catch {}
-
-            this.currentUser = {
-                email: email,
-                name: email.split('@')[0],
-                gender: 'other',
-                role: role
-            };
-            this.isAdmin = role === 'executive' || email === 'admin@cedarimpact.com';
-            this.saveData();
-            this.hideModal('login-modal');
-            this.updateUI();
-            this.showNotification('Login successful!', 'success');
+            // Verify against saved users
+            const users = this.getUsers();
+            const found = users.find(u => u.email === email && u.password === password);
+            if (found) {
+                this.currentUser = {
+                    name: found.name,
+                    email: found.email,
+                    gender: found.gender || 'other',
+                    role: found.role || 'participant'
+                };
+                this.isAdmin = this.currentUser.role === 'executive' || this.currentUser.email === 'admin@cedarimpact.com';
+                this.saveData();
+                this.hideModal('login-modal');
+                this.updateUI();
+                this.showNotification('Login successful!', 'success');
+            } else {
+                this.showNotification('Invalid credentials', 'error');
+            }
         } else {
             this.showNotification('Please fill in all fields', 'error');
         }
@@ -171,11 +247,18 @@ class CedarImpact {
     handleSignup(e) {
         e.preventDefault();
         const name = document.getElementById('signup-name').value;
+        const phone = (document.getElementById('signup-phone') && document.getElementById('signup-phone').value) || '';
         const email = document.getElementById('signup-email').value;
         const gender = document.getElementById('signup-gender').value;
         const password = document.getElementById('signup-password').value;
         const confirmPassword = document.getElementById('signup-confirm').value;
         const role = (document.getElementById('signup-role') && document.getElementById('signup-role').value) || 'participant';
+        const adminCode = (document.getElementById('signup-admin-code') && document.getElementById('signup-admin-code').value) || '';
+
+        if (password !== confirmPassword) {
+            this.showNotification('Passwords do not match', 'error');
+            return;
+        }
 
         if (password !== confirmPassword) {
             this.showNotification('Passwords do not match', 'error');
@@ -183,17 +266,40 @@ class CedarImpact {
         }
 
         if (name && email && gender && password && role) {
-            this.currentUser = {
-                name: name,
-                email: email,
-                gender: gender,
-                role: role
-            };
+            // If executive, require admin code
+            const ADMIN_CODE = 'CEDAR-ADMIN-2025'; // hardcoded admin code — change in production
+            if (role === 'executive') {
+                const provided = (adminCode || '').trim().toUpperCase();
+                const expected = (ADMIN_CODE || '').trim().toUpperCase();
+                if (provided !== expected) {
+                    this.showNotification('Invalid admin code for executive role', 'error');
+                    return;
+                }
+            }
+
+            // Save user to users list
+            this._users = this._users || [];
+            const existing = this._users.find(u => u.email === email);
+            if (existing) {
+                this.showNotification('User already exists with this email', 'error');
+                return;
+            }
+
+            const newUser = { name, phone, email, gender, role, password };
+            this._users.push(newUser);
+            this.saveUsers();
+
+            this.currentUser = { name, email, gender, role };
             this.isAdmin = role === 'executive' || email === 'admin@cedarimpact.com';
             this.saveData();
             this.hideModal('signup-modal');
             this.updateUI();
-            this.showNotification('Account created successfully!', 'success');
+            // Configure welcome modal
+            const welcomeDashboard = document.getElementById('welcome-dashboard');
+            if (welcomeDashboard) welcomeDashboard.style.display = this.isAdmin ? 'inline-block' : 'none';
+            const welcomeMessage = document.getElementById('welcome-message');
+            if (welcomeMessage) welcomeMessage.textContent = `Welcome to Cedar Impact, ${name}! You can now explore events or go to your dashboard.`;
+            this.showModal('welcome-modal');
         } else {
             this.showNotification('Please fill in all fields', 'error');
         }
@@ -253,59 +359,81 @@ class CedarImpact {
 
     // QR Scanner
     async startQRScanner() {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            const video = document.getElementById('scanner-video');
-            video.srcObject = stream;
-            video.play();
-
-            document.getElementById('start-scan').style.display = 'none';
-            document.getElementById('stop-scan').style.display = 'inline-block';
-
-            // Decode frames for QR code
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-
-            const tick = () => {
-                if (!video.srcObject) return;
-                canvas.width = video.videoWidth || 300;
-                canvas.height = video.videoHeight || 200;
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const code = jsQR(imageData.data, canvas.width, canvas.height);
-                if (code && code.data) {
-                    try {
-                        const payload = JSON.parse(code.data);
-                        if (payload && payload.eventId) {
-                            this.markAttendance(payload.eventId);
-                            this.stopQRScanner();
-                        }
-                    } catch {}
-                }
-                this.scanner = requestAnimationFrame(tick);
-            };
-            this.scanner = requestAnimationFrame(tick);
-
-        } catch (error) {
-            this.showNotification('Camera access denied', 'error');
+    try {
+        // Stop previous stream if running
+        if (this.currentStream) {
+            this.currentStream.getTracks().forEach(track => track.stop());
         }
-    }
 
-    stopQRScanner() {
+        const constraints = { video: { facingMode: this.currentFacingMode } };
+
+        // Try selected camera
+        this.currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+
         const video = document.getElementById('scanner-video');
-        if (video.srcObject) {
-            video.srcObject.getTracks().forEach(track => track.stop());
-            video.srcObject = null;
-        }
+        video.srcObject = this.currentStream;
+        await video.play();
 
-        if (this.scanner) {
-            cancelAnimationFrame(this.scanner);
-            this.scanner = null;
-        }
+        document.getElementById('start-scan').style.display = 'none';
+        document.getElementById('stop-scan').style.display = 'inline-block';
+        document.getElementById('switch-camera').style.display = 'inline-block'; // show button
 
-        document.getElementById('start-scan').style.display = 'inline-block';
-        document.getElementById('stop-scan').style.display = 'none';
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        const tick = () => {
+            if (!video.srcObject) return;
+            canvas.width = video.videoWidth || 300;
+            canvas.height = video.videoHeight || 200;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, canvas.width, canvas.height);
+
+            if (code && code.data) {
+                try {
+                    const payload = JSON.parse(code.data);
+                    if (payload && payload.eventId) {
+                        this.markAttendance(payload.eventId);
+                        this.stopQRScanner();
+                    }
+                } catch {}
+            }
+            this.scanner = requestAnimationFrame(tick);
+        };
+        this.scanner = requestAnimationFrame(tick);
+
+    } catch (error) {
+        this.showNotification('Camera not available or permission denied', 'error');
+        console.error(error);
     }
+}
+
+stopQRScanner() {
+    const video = document.getElementById('scanner-video');
+        if (this.currentStream) {
+            this.currentStream.getTracks().forEach(track => track.stop());
+            this.currentStream = null;
+        }
+    if (this.scanner) {
+        cancelAnimationFrame(this.scanner);
+        this.scanner = null;
+    }
+    video.srcObject = null;
+
+    document.getElementById('start-scan').style.display = 'inline-block';
+    document.getElementById('stop-scan').style.display = 'none';
+    document.getElementById('switch-camera').style.display = 'none';
+}
+
+switchCamera() {
+    this.currentFacingMode = (this.currentFacingMode === "environment") ? "user" : "environment";
+    // Restart scanner with the new camera if it was running
+    if (this.scanner || this.currentStream) {
+        this.startQRScanner();
+    }
+}
+
 
     simulateQRDetection() {
         const eventId = Math.floor(Math.random() * this.events.length) + 1;
@@ -381,17 +509,60 @@ class CedarImpact {
 
         this.events.forEach(event => {
             const eventCard = document.createElement('div');
-            eventCard.className = 'event-card';
-            eventCard.innerHTML = `
-                <h3>${event.name}</h3>
-                <p><strong>Date:</strong> ${event.date}</p>
-                <p><strong>Time:</strong> ${event.time}</p>
-                <p><strong>Location:</strong> ${event.location}</p>
-                <p>${event.description}</p>
-                ${this.isAdmin ? `<button class="btn btn-primary" onclick="cedarImpact.showEventQR(${event.id})">Show QR Code</button>` : ''}
-            `;
+            // If event has an image, render as background
+            if (event.image) {
+                eventCard.className = 'event-card has-bg';
+                eventCard.style.backgroundImage = `url('${event.image}')`;
+                eventCard.style.backgroundSize = 'cover';
+                eventCard.style.backgroundPosition = 'center';
+                eventCard.innerHTML = `
+                    <div class="event-card-content">
+                        <h3>${event.name}</h3>
+                        <p><strong>Date:</strong> ${event.date}</p>
+                        <p><strong>Time:</strong> ${event.time}</p>
+                        <p><strong>Location:</strong> ${event.location}</p>
+                        <p>${event.description}</p>
+                        ${this.isAdmin ? `<button class="btn btn-primary" onclick="cedarImpact.showEventQR(${event.id})">Show QR Code</button>` : ''}
+                    </div>
+                `;
+            } else {
+                eventCard.className = 'event-card';
+                eventCard.innerHTML = `
+                    <h3>${event.name}</h3>
+                    <p><strong>Date:</strong> ${event.date}</p>
+                    <p><strong>Time:</strong> ${event.time}</p>
+                    <p><strong>Location:</strong> ${event.location}</p>
+                    <p>${event.description}</p>
+                    ${this.isAdmin ? `<button class="btn btn-primary" onclick="cedarImpact.showEventQR(${event.id})">Show QR Code</button>` : ''}
+                `;
+            }
             eventsGrid.appendChild(eventCard);
         });
+
+        // Populate attendance event select for QR generation
+        const attendanceSelect = document.getElementById('attendance-event-select');
+        const attendanceQR = document.getElementById('attendance-qr');
+        if (attendanceSelect) {
+            attendanceSelect.innerHTML = '<option value="">Select event</option>';
+            this.events.forEach(ev => {
+                const opt = document.createElement('option');
+                opt.value = ev.id;
+                opt.textContent = ev.name;
+                attendanceSelect.appendChild(opt);
+            });
+        }
+        if (attendanceQR) attendanceQR.innerHTML = '';
+    }
+
+    generateAttendanceQR(eventId) {
+        const container = document.getElementById('attendance-qr');
+        if (!container) return;
+        container.innerHTML = '';
+        const ev = this.events.find(e => String(e.id) === String(eventId));
+        if (!ev) return;
+        const qrDiv = document.createElement('div');
+        container.appendChild(qrDiv);
+        new QRCode(qrDiv, { text: ev.qrCode || JSON.stringify({ eventId: ev.id, eventName: ev.name }), width: 160, height: 160 });
     }
 
     updateAttendanceTable() {
@@ -467,6 +638,92 @@ class CedarImpact {
         adminElements.forEach(element => {
             element.style.display = this.isAdmin ? 'block' : 'none';
         });
+        // If admin, render pending access requests into admin events tab
+        if (this.isAdmin) this.renderAccessRequests();
+    }
+
+    submitAccessRequest() {
+        const reason = (document.getElementById('request-reason') && document.getElementById('request-reason').value) || '';
+        if (!this.currentUser) {
+            this.showNotification('Please login before requesting executive access', 'error');
+            return;
+        }
+        if (!reason.trim()) {
+            this.showNotification('Please provide a reason for your request', 'error');
+            return;
+        }
+        this._requests = this._requests || [];
+        const req = {
+            id: Date.now(),
+            userEmail: this.currentUser.email,
+            userName: this.currentUser.name,
+            reason: reason.trim(),
+            status: 'pending',
+            createdAt: new Date().toISOString()
+        };
+        this._requests.push(req);
+        this.saveRequests();
+        this.hideModal('request-access-modal');
+        this.showNotification('Request submitted. An admin will review it.', 'success');
+    }
+
+    renderAccessRequests() {
+        const container = document.getElementById('admin-events-list');
+        if (!container) return;
+        // Find requests list area (append above existing events list)
+        let requestsArea = document.getElementById('access-requests-area');
+        if (!requestsArea) {
+            requestsArea = document.createElement('div');
+            requestsArea.id = 'access-requests-area';
+            requestsArea.innerHTML = '<h3>Pending Executive Access Requests</h3><div id="requests-list"></div>';
+            container.parentElement.insertBefore(requestsArea, container);
+        }
+        const list = document.getElementById('requests-list');
+        list.innerHTML = '';
+        (this._requests || []).filter(r => r.status === 'pending').forEach(r => {
+            const row = document.createElement('div');
+            row.style = 'border:1px solid #e0e0e0;padding:12px;border-radius:8px;margin-bottom:8px;';
+            row.innerHTML = `
+                <strong>${r.userName} &lt;${r.userEmail}&gt;</strong>
+                <p>${r.reason}</p>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-primary" data-action="approve" data-id="${r.id}">Approve</button>
+                    <button class="btn btn-danger" data-action="deny" data-id="${r.id}">Deny</button>
+                </div>
+            `;
+            list.appendChild(row);
+        });
+        // Attach handlers
+        list.querySelectorAll('button[data-action]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = Number(e.target.dataset.id);
+                const action = e.target.dataset.action;
+                if (action === 'approve') this.handleRequestApproval(id, true);
+                if (action === 'deny') this.handleRequestApproval(id, false);
+            });
+        });
+    }
+
+    handleRequestApproval(id, approve) {
+        const req = (this._requests || []).find(r => r.id === id);
+        if (!req) return;
+        req.status = approve ? 'approved' : 'denied';
+        req.reviewedAt = new Date().toISOString();
+        req.reviewedBy = this.currentUser ? this.currentUser.email : 'system';
+        this.saveRequests();
+        if (approve) {
+            // Promote user to executive if exists
+            const user = (this._users || []).find(u => u.email === req.userEmail);
+            if (user) {
+                user.role = 'executive';
+                this.saveUsers();
+            }
+            this.showNotification('Request approved and user promoted.', 'success');
+        } else {
+            this.showNotification('Request denied.', 'success');
+        }
+        this.renderAccessRequests();
+        this.updateUI();
     }
 
     // Utilities
@@ -480,11 +737,19 @@ class CedarImpact {
 
     showNotification(message, type) {
         const status = document.getElementById('attendance-status');
-        status.textContent = message;
-        status.className = `attendance-status ${type}`;
-        status.style.display = 'block';
+        if (status) {
+            status.textContent = message;
+            status.className = `attendance-status ${type}`;
+            status.style.display = 'block';
+        }
 
-        setTimeout(() => { status.style.display = 'none'; }, 3000);
+        const global = document.getElementById('global-notification');
+        if (global) {
+            global.textContent = message;
+            global.style.display = 'block';
+            global.style.background = type === 'error' ? '#c0392b' : (type === 'success' ? '#27ae60' : '#333');
+            setTimeout(() => { global.style.display = 'none'; }, 3000);
+        }
     }
 
     switchTab(tabName) {
@@ -577,8 +842,10 @@ class CedarImpact {
     }
 
     toggleMobileMenu() {
-        const navLinks = document.querySelector('.nav-links');
-        navLinks.classList.toggle('active');
+        const navMenu = document.getElementById('nav-menu');
+        if (navMenu) {
+            navMenu.classList.toggle('active');
+        }
     }
 }
 
