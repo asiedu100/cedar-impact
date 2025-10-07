@@ -12,6 +12,24 @@
 <body>
     <!-- Global Notification (visible) -->
     <div id="global-notification" style="display:none; position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:3000;padding:12px 20px;border-radius:8px;background:#333;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,0.2);"></div>
+
+    <!-- Auth Gate Overlay: forces login/signup before accessing content -->
+    <div id="auth-gate" style="display:flex; position:fixed; inset:0; z-index:2500; display:flex; align-items:center; justify-content:center;">
+        <div>
+            <div class="auth-logo-wrap">
+                <img src="CEDAR.JPG" alt="Cedar Logo" class="auth-logo">
+            </div>
+            <p class="auth-tagline">Mentorship • Networking • Growth</p>
+            <div style="background: white; padding:30px; border-radius:12px; max-width:420px; width:90%; text-align:center; margin: 0 auto;">
+                <h2 style="margin-bottom:8px; color:#4A148C;">Welcome to Cedar Impact</h2>
+                <p style="margin-bottom:20px; color:#333;">Please login or sign up to access events, attendance and the dashboard.</p>
+                <div style="display:flex; gap:12px; justify-content:center;">
+                    <button id="auth-login-btn" class="btn btn-primary">Login</button>
+                    <button id="auth-signup-btn" class="btn btn-outline">Sign Up</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- Navigation -->
     <nav class="navbar">
         <div class="nav-container">
@@ -39,6 +57,7 @@
     </nav>
 
     <!-- Hero Section -->
+    <div id="main-content">
     <section id="home" class="hero">
         <div class="hero-content">
             <h1>Welcome to Cedar Impact</h1>
@@ -68,6 +87,10 @@
                 <div class="form-group">
                     <label for="login-password">Password</label>
                     <input type="password" id="login-password" required>
+                </div>
+                <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" id="login-remember">
+                    <label for="login-remember" style="margin:0;">Remember me</label>
                 </div>
                 <button type="submit" class="btn btn-primary btn-full">Login</button>
                 <p class="form-switch">Don't have an account? <a href="#" id="switch-to-signup">Sign up</a></p>
@@ -159,9 +182,13 @@
                     <select id="attendance-event-select" style="padding:8px 10px;border-radius:8px;border:1px solid #e0e0e0;min-width:220px;"></select>
                 </div>
                 <div id="attendance-qr" style="margin-top:12px;"></div>
-                <button class="btn btn-primary" id="start-scan">Start QR Scan</button>
+                <div style="margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <button class="btn btn-primary" id="start-scan">Start QR Scan</button>
                 <button class="btn btn-danger" id="stop-scan" style="display: none;">Stop Scan</button>
                 <button class="btn btn-secondary" id="switch-camera" style="display: none; margin-left:8px;">Switch Camera</button>
+                    <button class="btn btn-secondary" id="generate-test-qr">Generate Test QR</button>
+                </div>
+                </div>
             </div>
             <div class="attendance-status" id="attendance-status"></div>
         </div>
@@ -242,6 +269,7 @@
             </div>
         </div>
     </section>
+    </div>
 
     <!-- Create Event Modal -->
     <div id="create-event-modal" class="modal">

@@ -21,14 +21,22 @@ class CedarImpact {
 
     // Data Management
     loadData() {
-        const savedUser = localStorage.getItem('cedarImpactUser');
+    const savedUser = localStorage.getItem('cedarImpactUser');
         const savedEvents = localStorage.getItem('cedarImpactEvents');
         const savedAttendance = localStorage.getItem('cedarImpactAttendance');
         const savedUsers = localStorage.getItem('cedarImpactUsers');
 
-        if (savedUser) {
-            this.currentUser = JSON.parse(savedUser);
-            this.isAdmin = this.currentUser.email === 'admin@cedarimpact.com';
+        // Do NOT auto-login users on app start. Restore previous user only when
+        // an explicit 'remember me' flag exists. This prevents automatic login when
+        // opening the site via Live Server during development.
+        try {
+            const remember = localStorage.getItem('cedarImpactRemember');
+            if (savedUser && remember === 'true') {
+                this.currentUser = JSON.parse(savedUser);
+                this.isAdmin = this.currentUser && this.currentUser.email === 'admin@cedarimpact.com';
+            }
+        } catch (err) {
+            this.currentUser = null;
         }
 
         try {
@@ -127,6 +135,11 @@ class CedarImpact {
     setupEventListeners() {
         document.getElementById('login-btn').addEventListener('click', () => this.showModal('login-modal'));
         document.getElementById('signup-btn').addEventListener('click', () => this.showModal('signup-modal'));
+    // Auth gate buttons (shown to visitors before login)
+    const authLoginBtn = document.getElementById('auth-login-btn');
+    if (authLoginBtn) authLoginBtn.addEventListener('click', () => this.showModal('login-modal'));
+    const authSignupBtn = document.getElementById('auth-signup-btn');
+    if (authSignupBtn) authSignupBtn.addEventListener('click', () => this.showModal('signup-modal'));
         document.getElementById('logout-btn').addEventListener('click', () => this.logout());
         document.getElementById('get-started').addEventListener('click', () => this.showModal('signup-modal'));
 
@@ -207,6 +220,8 @@ class CedarImpact {
         if (attendanceSelect) {
             attendanceSelect.addEventListener('change', (e) => this.generateAttendanceQR(e.target.value));
         }
+        const genTest = document.getElementById('generate-test-qr');
+        if (genTest) genTest.addEventListener('click', () => this.generateTestQR());
 
         window.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal')) {
@@ -220,6 +235,7 @@ class CedarImpact {
         e.preventDefault();
         const email = document.getElementById('login-email').value;
         const password = document.getElementById('login-password').value;
+        const remember = (document.getElementById('login-remember') && document.getElementById('login-remember').checked) || false;
         if (email && password) {
             // Verify against saved users
             const users = this.getUsers();
@@ -232,7 +248,14 @@ class CedarImpact {
                     role: found.role || 'participant'
                 };
                 this.isAdmin = this.currentUser.role === 'executive' || this.currentUser.email === 'admin@cedarimpact.com';
-                this.saveData();
+                // Save the user only if they asked to be remembered
+                if (remember) {
+                    localStorage.setItem('cedarImpactUser', JSON.stringify(this.currentUser));
+                    localStorage.setItem('cedarImpactRemember', 'true');
+                } else {
+                    localStorage.removeItem('cedarImpactUser');
+                    localStorage.removeItem('cedarImpactRemember');
+                }
                 this.hideModal('login-modal');
                 this.updateUI();
                 this.showNotification('Login successful!', 'success');
@@ -244,7 +267,7 @@ class CedarImpact {
         }
     }
 
-    handleSignup(e) {
+    async handleSignup(e) {
         e.preventDefault();
         const name = document.getElementById('signup-name').value;
         const phone = (document.getElementById('signup-phone') && document.getElementById('signup-phone').value) || '';
@@ -266,14 +289,38 @@ class CedarImpact {
         }
 
         if (name && email && gender && password && role) {
-            // If executive, require admin code
-            const ADMIN_CODE = 'CEDAR-ADMIN-2025'; // hardcoded admin code — change in production
+            // If executive, attempt server-side invite/token verification first.
+            // If server is unavailable, fall back to a development ADMIN_CODE.
             if (role === 'executive') {
-                const provided = (adminCode || '').trim().toUpperCase();
-                const expected = (ADMIN_CODE || '').trim().toUpperCase();
-                if (provided !== expected) {
-                    this.showNotification('Invalid admin code for executive role', 'error');
-                    return;
+                const urlToken = (new URLSearchParams(window.location.search)).get('invite') || '';
+                let verified = false;
+                // Try server verification if we have a token or adminCode provided
+                try {
+                    const payload = urlToken ? { token: urlToken } : (adminCode ? { code: adminCode.trim() } : null);
+                    if (payload) {
+                        const res = await fetch('/api/invites/verify/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (res.ok) {
+                            const json = await res.json();
+                            if (json && (json.valid || json.success)) verified = true;
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Invite verify request failed, will try local admin code as fallback', err);
+                }
+
+                // Development fallback (insecure) if server verification didn't succeed
+                const ADMIN_CODE = 'CEDAR-ADMIN-2025'; // change to server-only in production
+                if (!verified) {
+                    const provided = (adminCode || '').trim().toUpperCase();
+                    const expected = (ADMIN_CODE || '').trim().toUpperCase();
+                    if (provided !== expected) {
+                        this.showNotification('Invalid admin code or invite token for executive role', 'error');
+                        return;
+                    }
                 }
             }
 
@@ -289,17 +336,10 @@ class CedarImpact {
             this._users.push(newUser);
             this.saveUsers();
 
-            this.currentUser = { name, email, gender, role };
-            this.isAdmin = role === 'executive' || email === 'admin@cedarimpact.com';
-            this.saveData();
+            // Do NOT auto-login the user. Require explicit login before showing welcome.
             this.hideModal('signup-modal');
             this.updateUI();
-            // Configure welcome modal
-            const welcomeDashboard = document.getElementById('welcome-dashboard');
-            if (welcomeDashboard) welcomeDashboard.style.display = this.isAdmin ? 'inline-block' : 'none';
-            const welcomeMessage = document.getElementById('welcome-message');
-            if (welcomeMessage) welcomeMessage.textContent = `Welcome to Cedar Impact, ${name}! You can now explore events or go to your dashboard.`;
-            this.showModal('welcome-modal');
+            this.showNotification('Account created successfully! Please login to continue.', 'success');
         } else {
             this.showNotification('Please fill in all fields', 'error');
         }
@@ -308,6 +348,9 @@ class CedarImpact {
     logout() {
         this.currentUser = null;
         this.isAdmin = false;
+        // Clear remembered user on logout
+        localStorage.removeItem('cedarImpactUser');
+        localStorage.removeItem('cedarImpactRemember');
         this.saveData();
         this.updateUI();
         this.showNotification('Logged out successfully', 'success');
@@ -368,36 +411,117 @@ class CedarImpact {
         const constraints = { video: { facingMode: this.currentFacingMode } };
 
         // Try selected camera
-        this.currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+        try {
+            this.currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (err) {
+            console.warn('Failed to get camera with facingMode, trying default camera', err);
+            try {
+                this.currentStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            } catch (err2) {
+                this.showNotification('Camera not available or permission denied', 'error');
+                console.error('Camera start failed', err2);
+                return;
+            }
+        }
 
         const video = document.getElementById('scanner-video');
+        if (!video) {
+            this.showNotification('Scanner video element not found', 'error');
+            return;
+        }
         video.srcObject = this.currentStream;
-        await video.play();
+        // Improve compatibility on mobile (iOS Safari requires playsinline)
+        try {
+            video.setAttribute('playsinline', '');
+        } catch {}
+        video.muted = true;
+
+        // Wait for video metadata so we have correct dimensions
+        await new Promise((resolve, reject) => {
+            const onLoaded = () => {
+                video.removeEventListener('loadedmetadata', onLoaded);
+                resolve();
+            };
+            const onError = (e) => {
+                video.removeEventListener('error', onError);
+                reject(e);
+            };
+            video.addEventListener('loadedmetadata', onLoaded);
+            video.addEventListener('error', onError);
+            // start playing (some browsers require play() to fire loadedmetadata)
+            const p = video.play();
+            if (p && p.catch) p.catch(() => {});
+        });
 
         document.getElementById('start-scan').style.display = 'none';
         document.getElementById('stop-scan').style.display = 'inline-block';
         document.getElementById('switch-camera').style.display = 'inline-block'; // show button
 
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
 
         const tick = () => {
-            if (!video.srcObject) return;
-            canvas.width = video.videoWidth || 300;
-            canvas.height = video.videoHeight || 200;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            try {
+                if (!video || !video.srcObject) return;
+                if (video.readyState !== 4) { // HAVE_ENOUGH_DATA
+                    this.scanner = requestAnimationFrame(tick);
+                    return;
+                }
+                canvas.width = video.videoWidth || 300;
+                canvas.height = video.videoHeight || 200;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                // no debug drawing
 
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const code = jsQR(imageData.data, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, canvas.width, canvas.height);
 
-            if (code && code.data) {
-                try {
-                    const payload = JSON.parse(code.data);
-                    if (payload && payload.eventId) {
-                        this.markAttendance(payload.eventId);
-                        this.stopQRScanner();
+                if (code && code.data) {
+                    // give immediate feedback
+                    this.showNotification('QR code detected, processing...', 'success');
+                    // Try JSON payload first
+                    let handled = false;
+                    try {
+                        const payload = JSON.parse(code.data);
+                        if (payload && payload.eventId) {
+                            this.markAttendance(payload.eventId);
+                            this.stopQRScanner();
+                            handled = true;
+                        }
+                    } catch (err) {
+                        // not JSON — fall back to URL parsing
                     }
-                } catch {}
+
+                    if (!handled) {
+                        // Try parsing as a URL and extract ?event=123
+                        try {
+                            const text = code.data.trim();
+                            // If it's a plain number, treat as event id
+                            if (/^\d+$/.test(text)) {
+                                this.markAttendance(Number(text));
+                                this.stopQRScanner();
+                                handled = true;
+                            } else {
+                                const url = new URL(text, window.location.origin);
+                                const params = new URLSearchParams(url.search);
+                                const eventParam = params.get('event') || params.get('eventId') || params.get('id');
+                                if (eventParam) {
+                                    this.markAttendance(Number(eventParam));
+                                    this.stopQRScanner();
+                                    handled = true;
+                                }
+                            }
+                        } catch (err) {
+                            console.debug('QR data is not JSON or URL', err);
+                        }
+                    }
+
+                    if (!handled) {
+                        // final fallback: show the raw data so user can inspect
+                        this.showNotification('QR scanned but no event found: ' + code.data.substring(0, 80), 'error');
+                    }
+                }
+            } catch (err) {
+                console.error('Error while scanning frame', err);
             }
             this.scanner = requestAnimationFrame(tick);
         };
@@ -411,19 +535,27 @@ class CedarImpact {
 
 stopQRScanner() {
     const video = document.getElementById('scanner-video');
+    try {
         if (this.currentStream) {
             this.currentStream.getTracks().forEach(track => track.stop());
             this.currentStream = null;
         }
+    } catch (err) {
+        console.error('Error stopping stream', err);
+    }
     if (this.scanner) {
         cancelAnimationFrame(this.scanner);
         this.scanner = null;
     }
-    video.srcObject = null;
+    if (video) {
+        try { video.pause(); } catch {}
+        try { video.srcObject = null; } catch {}
+    }
 
     document.getElementById('start-scan').style.display = 'inline-block';
     document.getElementById('stop-scan').style.display = 'none';
-    document.getElementById('switch-camera').style.display = 'none';
+    const scBtn = document.getElementById('switch-camera');
+    if (scBtn) scBtn.style.display = 'none';
 }
 
 switchCamera() {
@@ -472,10 +604,11 @@ switchCamera() {
             timestamp: new Date().toISOString()
         };
 
-        this.attendance.push(attendanceRecord);
-        this.saveData();
-        this.updateUI();
-        this.showNotification(`Attendance marked for ${event.name}`, 'success');
+    this.attendance.push(attendanceRecord);
+    this.saveData();
+    this.updateUI();
+    const timeStr = new Date(attendanceRecord.timestamp).toLocaleString();
+    this.showNotification(`Attendance marked for ${event.name} at ${timeStr}`, 'success');
     }
 
     // UI Updates
@@ -485,6 +618,13 @@ switchCamera() {
         this.updateAttendanceTable();
         this.updateAnalytics();
         this.updateAdminVisibility();
+        this.updateAuthGate();
+    }
+
+    updateAuthGate() {
+        const gate = document.getElementById('auth-gate');
+        if (!gate) return;
+        gate.style.display = this.currentUser ? 'none' : 'flex';
     }
 
     updateNavigation() {
@@ -563,6 +703,17 @@ switchCamera() {
         const qrDiv = document.createElement('div');
         container.appendChild(qrDiv);
         new QRCode(qrDiv, { text: ev.qrCode || JSON.stringify({ eventId: ev.id, eventName: ev.name }), width: 160, height: 160 });
+    }
+
+    generateTestQR() {
+        const container = document.getElementById('attendance-qr');
+        if (!container) return;
+        container.innerHTML = '';
+        const payload = JSON.stringify({ eventId: 9999, eventName: 'Test Event', url: `${window.location.origin}/attendance.html?event=9999` });
+        const qrDiv = document.createElement('div');
+        container.appendChild(qrDiv);
+        new QRCode(qrDiv, { text: payload, width: 160, height: 160 });
+        this.showNotification('Test QR generated below; point your camera at it.', 'success');
     }
 
     updateAttendanceTable() {
@@ -728,7 +879,37 @@ switchCamera() {
 
     // Utilities
     showModal(modalId) {
-        document.getElementById(modalId).style.display = 'block';
+        // If mobile nav menu is open, close it so modal is not obscured
+        try {
+            const navMenu = document.getElementById('nav-menu');
+            if (navMenu && navMenu.classList.contains('active')) {
+                navMenu.classList.remove('active');
+            }
+        } catch (err) {
+            // ignore
+        }
+        // If the welcome modal is visible and we're opening a different modal, hide it
+        try {
+            if (modalId !== 'welcome-modal') {
+                const welcome = document.getElementById('welcome-modal');
+                if (welcome && welcome.style.display === 'block') welcome.style.display = 'none';
+            }
+        } catch (err) {}
+
+        // Do not hide auth gate here — the gate should persist until login.
+
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            // ensure modal appears above overlays
+            try { document.body.appendChild(modal); } catch (err) {}
+            modal.style.zIndex = '4000';
+            modal.style.display = 'block';
+            // focus first input for convenience
+            try {
+                const firstInput = modal.querySelector('input, select, textarea, button');
+                if (firstInput) firstInput.focus();
+            } catch (err) {}
+        }
     }
 
     hideModal(modalId) {
