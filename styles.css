@@ -142,6 +142,18 @@ body {
     background: #7f8c8d;
 }
 
+/* Register button (green) */
+.btn-register {
+    background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+    color: white;
+    border: none;
+}
+
+.btn-register:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(46, 204, 113, 0.25);
+}
+
 .btn-large {
     padding: 15px 30px;
     font-size: 1.1rem;
@@ -294,6 +306,9 @@ body {
     z-index: 3; /* ensure grid sits above section overlay */
 }
 
+/* Featured event styles (by slug): make cedar span two columns on wide screens and ladies be taller) */
+/* per-event feature styling removed to restore uniform card layout */
+
 .event-card {
     background: white;
     border-radius: 15px;
@@ -366,6 +381,31 @@ body {
     color: rgba(255,255,255,0.9);
 }
 
+.registered-badge {
+    display: inline-block;
+    padding: 8px 12px;
+    background: rgba(39,174,96,0.95);
+    color: white;
+    border-radius: 8px;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+/* Badge shown on event cards after registering */
+.event-registered-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(39,174,96,0.95);
+    color: white;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-weight: 700;
+    z-index: 3;
+}
+
+.btn-danger { margin-left: 8px; }
+
 /* QR Scanner */
 .qr-scanner {
     text-align: center;
@@ -417,6 +457,35 @@ body {
     border-radius: 10px;
     font-weight: bold;
     display: none;
+}
+
+/* Floating toast notifications (more visible) */
+.toast-container {
+    position: fixed;
+    right: 20px;
+    top: 20px;
+    z-index: 4000;
+}
+.toast {
+    min-width: 220px;
+    margin-bottom: 10px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    color: white;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    font-weight: 600;
+}
+.toast.success { background: linear-gradient(90deg,#27ae60,#2ecc71); }
+.toast.error { background: linear-gradient(90deg,#e74c3c,#c0392b); }
+
+/* Match indicator */
+#signup-match-indicator { font-size: 0.95rem; opacity: 0; transition: opacity 180ms ease; }
+
+/* Form clear animation */
+.form-cleared { animation: formClearFade 350ms ease forwards; }
+@keyframes formClearFade {
+    from { opacity: 0.5; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .attendance-status.success {
@@ -549,104 +618,9 @@ body {
     backdrop-filter: blur(5px);
 }
 
-/* When auth gate overlay is visible, hide main content so visitors must login */
-#auth-gate[style*="display:flex"] + #main-content,
-#auth-gate[style*="display:flex"] ~ #main-content {
-    display: none !important;
-}
+/* Removed hard-gating via CSS so login is handled from the navbar */
 
-/* Make auth gate larger and use GROUP.JPG as background */
-#auth-gate {
-    display: flex; /* ensure visible by default when added inline */
-    align-items: center;
-    justify-content: center;
-    position: fixed;
-    inset: 0;
-    z-index: 2500;
-    background-image: url('GROUP.JPG');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-}
-
-#auth-gate::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    /* minimal overlay so background is mostly visible */
-    background: rgba(0,0,0,0.18);
-    z-index: 1;
-}
-
-#auth-gate > div {
-    position: relative;
-    z-index: 2;
-    max-width: 760px;
-    width: 92%;
-    padding: 36px 36px 30px;
-    border-radius: 14px;
-    /* lighter white so background shows through more */
-    background: rgba(255,255,255,0.60);
-    backdrop-filter: blur(3px);
-    box-shadow: 0 14px 30px rgba(0,0,0,0.22);
-    text-align: center;
-}
-
-.auth-tagline {
-    text-align: center;
-    color: #fff;
-    font-weight: 600;
-    margin-top: 12px;
-    margin-bottom: 12px;
-    z-index: 2;
-}
-
-/* Animations */
-.fade-in-up {
-    animation: fadeInUp 480ms ease both;
-}
-
-@keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(18px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.modal-content {
-    animation: modalSlideIn 360ms ease both;
-}
-
-#auth-gate h2 {
-    margin-bottom: 8px;
-    color: #4A148C;
-}
-
-#auth-gate p {
-    color: #333;
-    margin-bottom: 20px;
-}
-
-.auth-logo-wrap {
-    text-align: center;
-    margin-bottom: 18px;
-}
-
-.auth-logo {
-    width: 180px;
-    height: auto;
-    border-radius: 8px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-    display: inline-block;
-}
-
-@media (max-width: 480px) {
-    .auth-logo { width: 140px; }
-    #auth-gate > div { padding: 20px; }
-}
-
-/* Auth gate styling (inlined fallback exists in HTML) */
-#auth-gate .btn {
-    min-width: 120px;
-}
+/* Auth gate removed: styles cleaned up */
 
 .modal-content {
     background: white;
@@ -810,6 +784,22 @@ body {
         grid-template-columns: 1fr;
     }
 
+    /* Make scanner occupy full width on small screens and stack controls */
+    .qr-scanner { max-width: 100%; padding: 0 10px; }
+    .scanner-container { width: 100%; }
+    #scanner-video { width: 100%; height: auto; max-height: 60vh; }
+    .scanner-overlay .scanner-box { width: 60%; height: 40%; }
+
+    .qr-scanner > div[style] {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .qr-scanner button, .qr-scanner select { font-size: 1rem; padding: 10px 12px; }
+
+    /* On small screens, undo cedar spanning multiple columns */
+    .event-card--cedar-impact-meetup { grid-column: auto; }
+
     .analytics-cards {
         grid-template-columns: 1fr;
     }
@@ -844,5 +834,56 @@ body {
         flex-direction: column;
         gap: 15px;
     }
+
+    /* Make modals feel like native full-screen dialogs on very small phones */
+    .modal-content {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        border-radius: 0;
+        max-width: 100%;
+        max-height: 100vh;
+    }
+
+    .modal-header { padding: 18px; }
+
+    /* Tighten event card spacing for small screens */
+    .event-card, .event-card .event-card-content { padding: 16px; }
+    .event-card h3 { font-size: 1.1rem; }
+    .event-card p { font-size: 0.95rem; }
+
+    /* Make nav buttons larger and easier to tap */
+    .nav-auth .btn { padding: 10px 14px; font-size: 0.95rem; }
+
+    /* Attendance table reduce padding to fit narrow screens */
+    .attendance-table th, .attendance-table td { padding: 10px; font-size: 0.9rem; }
+}
+
+/* Background event card overlay styling */
+.event-card { transition: all 0.3s ease; }
+.event-card-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    /* align to top so titles/descriptions are visible and not clipped at the bottom */
+    justify-content: flex-start;
+    padding: 24px;
+    z-index: 2;
+    background: linear-gradient(180deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.55) 60%);
+}
+.event-card.has-bg { padding: 0; min-height: 220px; }
+.event-card.has-bg h3 { margin: 0 0 8px 0; font-size: 1.4rem; }
+.event-card.has-bg .meta { font-size: 0.95rem; opacity: 0.95; }
+.event-card.has-bg .desc { margin-top: 8px; font-size: 0.95rem; opacity: 0.95; }
+
+.event-card .event-card-content {
+    /* ensure wrapping and avoid clipping */
+    word-wrap: break-word;
+}
+
+.event-card h3 {
+    line-height: 1.2;
+    white-space: normal;
 }
 

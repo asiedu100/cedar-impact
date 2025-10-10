@@ -1,0 +1,6 @@
+{{ subject }}
+
+{{ body }}
+
+--
+Cedar Impact Networking Hub

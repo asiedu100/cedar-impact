@@ -3,33 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CEDAR IMPACT - Mentorship,Networking & Growth</title>
+    <title> Cedar Impact- Connect & Network</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
-    <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+    <!-- jsQR for live QR decoding -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 </head>
 <body>
-    <!-- Global Notification (visible) -->
-    <div id="global-notification" style="display:none; position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:3000;padding:12px 20px;border-radius:8px;background:#333;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,0.2);"></div>
-
-    <!-- Auth Gate Overlay: forces login/signup before accessing content -->
-    <div id="auth-gate" style="display:flex; position:fixed; inset:0; z-index:2500; display:flex; align-items:center; justify-content:center;">
-        <div>
-            <div class="auth-logo-wrap">
-                <img src="CEDAR.JPG" alt="Cedar Logo" class="auth-logo">
-            </div>
-            <p class="auth-tagline">Mentorship • Networking • Growth</p>
-            <div style="background: white; padding:30px; border-radius:12px; max-width:420px; width:90%; text-align:center; margin: 0 auto;">
-                <h2 style="margin-bottom:8px; color:#4A148C;">Welcome to Cedar Impact</h2>
-                <p style="margin-bottom:20px; color:#333;">Please login or sign up to access events, attendance and the dashboard.</p>
-                <div style="display:flex; gap:12px; justify-content:center;">
-                    <button id="auth-login-btn" class="btn btn-primary">Login</button>
-                    <button id="auth-signup-btn" class="btn btn-outline">Sign Up</button>
-                </div>
-            </div>
-        </div>
-    </div>
     <!-- Navigation -->
     <nav class="navbar">
         <div class="nav-container">
@@ -57,11 +38,10 @@
     </nav>
 
     <!-- Hero Section -->
-    <div id="main-content">
     <section id="home" class="hero">
         <div class="hero-content">
             <h1>Welcome to Cedar Impact</h1>
-            <p>Mentorship, Networking, and Growth</p>
+            <p>MENTORSHIP,GROWTH AND NETWORKING</p>
             <div class="hero-buttons">
                 <button class="btn btn-primary btn-large" id="get-started">Get Started</button>
                 <button class="btn btn-outline btn-large" id="learn-more">Learn More</button>
@@ -88,10 +68,12 @@
                     <label for="login-password">Password</label>
                     <input type="password" id="login-password" required>
                 </div>
-                <div class="form-group" style="display:flex;align-items:center;gap:8px;">
-                    <input type="checkbox" id="login-remember">
-                    <label for="login-remember" style="margin:0;">Remember me</label>
+                <div class="form-group">
+                    <label><input type="checkbox" id="login-show-password"> Show password</label>
                 </div>
+                    <div class="form-group">
+                        <label><input type="checkbox" id="login-remember"> Remember me</label>
+                    </div>
                 <button type="submit" class="btn btn-primary btn-full">Login</button>
                 <p class="form-switch">Don't have an account? <a href="#" id="switch-to-signup">Sign up</a></p>
             </form>
@@ -111,10 +93,6 @@
                     <input type="text" id="signup-name" required>
                 </div>
                 <div class="form-group">
-                    <label for="signup-phone">Telephone</label>
-                    <input type="tel" id="signup-phone" placeholder="e.g. +233 24 123 4567">
-                </div>
-                <div class="form-group">
                     <label for="signup-email">Email</label>
                     <input type="email" id="signup-email" required>
                 </div>
@@ -130,22 +108,37 @@
                 <div class="form-group">
                     <label for="signup-role">Role</label>
                     <select id="signup-role" required>
-                        <option value="">Select Role</option>
                         <option value="participant">Participant</option>
-                        <option value="executive">Executive</option>
+                        <option value="admin">Admin</option>
                     </select>
                 </div>
-                <div class="form-group" id="signup-admin-code-group" style="display: none;">
-                    <label for="signup-admin-code">Admin Code (required for Executives)</label>
-                    <input type="password" id="signup-admin-code" placeholder="Enter admin code (case-insensitive)">
+                <!-- Invite tokens removed; use admin code instead -->
+                <div class="form-group" id="admin-code-group" style="display:none;">
+                    <label for="admin-code">Admin Code</label>
+                    <input type="text" id="admin-code" placeholder="Enter admin code (provided by Cedar)">
+                    <small style="color:#666; display:block; margin-top:6px;">If you are an admin, enter your admin code to register as admin.</small>
                 </div>
+                <div class="form-group">
+                    <label for="signup-phone">Phone</label>
+                    <input type="tel" id="signup-phone" placeholder="e.g. +233 24 000 0000">
+                </div>
+                <!-- OTP flow removed. Admins use admin code above. -->
                 <div class="form-group">
                     <label for="signup-password">Password</label>
                     <input type="password" id="signup-password" required>
+                    <small style="color:#666; display:block; margin-top:6px;">Password must be at least 8 characters and include a special character (e.g. !@#$%).</small>
                 </div>
                 <div class="form-group">
                     <label for="signup-confirm">Confirm Password</label>
                     <input type="password" id="signup-confirm" required>
+                    <div id="signup-confirm-error" style="color:#e74c3c; margin-top:6px; display:none; font-size:0.95rem;"></div>
+                </div>
+                <div class="form-group" style="display:flex; align-items:center; gap:8px;">
+                    <div style="flex:1"></div>
+                    <span id="signup-match-indicator" style="display:none; color:#2ecc71; font-weight:700;">✓ Passwords match</span>
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" id="signup-show-password"> Show password</label>
                 </div>
                 <button type="submit" class="btn btn-primary btn-full">Sign Up</button>
                 <p class="form-switch">Already have an account? <a href="#" id="switch-to-login">Login</a></p>
@@ -177,17 +170,12 @@
                         <div class="scanner-box"></div>
                     </div>
                 </div>
-                <div style="margin-top:12px;">
-                    <label for="attendance-event-select" style="display:block;margin-bottom:8px;font-weight:600;">Select Event (Generate QR)</label>
-                    <select id="attendance-event-select" style="padding:8px 10px;border-radius:8px;border:1px solid #e0e0e0;min-width:220px;"></select>
-                </div>
-                <div id="attendance-qr" style="margin-top:12px;"></div>
-                <div style="margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <div style="display:flex; gap:10px; align-items:center; margin-top:10px;">
+                    <label for="scanner-event-select" style="color:#fff; font-weight:600;">Scan for:</label>
+                    <select id="scanner-event-select" style="padding:8px 12px; border-radius:8px;"></select>
+                    <button class="btn btn-secondary" id="toggle-camera" title="Toggle camera (front/back)">Rear camera</button>
                     <button class="btn btn-primary" id="start-scan">Start QR Scan</button>
-                <button class="btn btn-danger" id="stop-scan" style="display: none;">Stop Scan</button>
-                <button class="btn btn-secondary" id="switch-camera" style="display: none; margin-left:8px;">Switch Camera</button>
-                    <button class="btn btn-secondary" id="generate-test-qr">Generate Test QR</button>
-                </div>
+                    <button class="btn btn-danger" id="stop-scan" style="display: none;">Stop Scan</button>
                 </div>
             </div>
             <div class="attendance-status" id="attendance-status"></div>
@@ -201,13 +189,18 @@
             <div class="admin-tabs">
                 <button class="tab-btn active" data-tab="events">Events</button>
                 <button class="tab-btn" data-tab="attendance">Attendance</button>
+                <button class="tab-btn" data-tab="registrations">Registrations</button>
                 <button class="tab-btn" data-tab="analytics">Analytics</button>
             </div>
             
             <div class="tab-content active" id="events-tab">
                 <div class="admin-events">
                     <h3>Manage Events</h3>
-                    <button class="btn btn-primary" id="add-event-btn">Add Event</button>
+                    <div style="display:flex; gap:12px; align-items:center;">
+                        <button class="btn btn-primary" id="add-event-btn">Add Event</button>
+                        <button class="btn btn-secondary admin-only" id="open-send-email">Send Email</button>
+                        <button class="btn btn-outline admin-only" id="open-send-history">Send History</button>
+                    </div>
                     <div class="events-list" id="admin-events-list"></div>
                 </div>
             </div>
@@ -219,11 +212,6 @@
                         <select id="event-filter">
                             <option value="">All Events</option>
                         </select>
-                        <select id="role-filter">
-                            <option value="">All Roles</option>
-                            <option value="participant">Participants</option>
-                            <option value="executive">Executives</option>
-                        </select>
                         <button class="btn btn-secondary" id="export-attendance">Export Data</button>
                     </div>
                     <div class="attendance-table-container">
@@ -232,14 +220,40 @@
                                 <tr>
                                     <th>Name</th>
                                     <th>Email</th>
+                                    <th>Phone</th>
                                     <th>Gender</th>
-                                    <th>Role</th>
                                     <th>Event</th>
                                     <th>Time</th>
                                 </tr>
                             </thead>
                             <tbody id="attendance-tbody">
                             </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="registrations-tab">
+                <div class="registrations-management">
+                    <h3>Event Registrations</h3>
+                    <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px;">
+                        <select id="registration-event-filter">
+                            <option value="">All Events</option>
+                        </select>
+                        <button class="btn btn-secondary" id="export-registrations">Export Registrations</button>
+                    </div>
+                    <div class="registrations-table-container">
+                        <table class="attendance-table" id="registrations-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th>Event</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="registrations-tbody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -269,7 +283,6 @@
             </div>
         </div>
     </section>
-    </div>
 
     <!-- Create Event Modal -->
     <div id="create-event-modal" class="modal">
@@ -304,49 +317,88 @@
         </div>
     </div>
 
-        <!-- Welcome Modal (shown after signup) -->
-        <div id="welcome-modal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Welcome to Cedar Impact</h2>
-                    <span class="close" id="close-welcome">&times;</span>
-                </div>
-                <div class="auth-form">
-                    <p id="welcome-message" style="padding:20px; font-size:1.05rem;">Welcome! Your account was created.</p>
-                    <div style="display:flex; gap:12px; padding:0 20px 30px;">
-                        <button id="welcome-events" class="btn btn-primary">View Events</button>
-                        <button id="welcome-dashboard" class="btn btn-outline" style="display:none;">Admin Dashboard</button>
-                        <button id="welcome-logout" class="btn btn-danger">Logout</button>
-                        <button id="request-access-btn" class="btn btn-secondary">Request Executive Access</button>
-                    </div>
-                </div>
+    <!-- Send History Modal -->
+    <div id="send-history-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Send History</h2>
+                <span class="close" id="close-send-history">&times;</span>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <div id="send-history-list" style="max-height:60vh; overflow:auto;"></div>
             </div>
         </div>
+    </div>
 
-        <!-- Request Access Modal -->
-        <div id="request-access-modal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Request Executive Access</h2>
-                    <span class="close" id="close-request">&times;</span>
-                </div>
-                <div class="auth-form">
-                    <p style="padding:20px;">Submit a brief reason why you need executive access. An admin will review your request.</p>
-                    <div style="padding:0 20px 20px;">
-                        <textarea id="request-reason" rows="4" style="width:100%;padding:10px;border-radius:8px;border:1px solid #e0e0e0;"></textarea>
-                        <div style="margin-top:12px;display:flex;gap:8px;">
-                            <button id="submit-request" class="btn btn-primary">Submit Request</button>
-                            <button id="cancel-request" class="btn btn-outline">Cancel</button>
-                        </div>
-                    </div>
+    <!-- Registration Confirmation Modal -->
+    <div id="register-confirm-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Confirm Registration</h2>
+                <span class="close" id="close-register-confirm">&times;</span>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <p id="register-confirm-text">Do you want to register for this event?</p>
+                <div style="display:flex; gap:10px; justify-content:flex-end; padding-top:10px;">
+                    <button class="btn btn-outline" id="cancel-register">Cancel</button>
+                    <button class="btn btn-primary" id="confirm-register">Confirm</button>
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Send Email Modal (Admin) -->
+    <div id="send-email-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Send Email to Participants</h2>
+                <span class="close" id="close-send-email">&times;</span>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <div class="form-group">
+                    <label for="send-event-select">Event</label>
+                    <select id="send-event-select">
+                        <option value="">-- Select event --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="send-template-type">Template</label>
+                    <select id="send-template-type">
+                        <option value="custom">Custom</option>
+                        <option value="3days">3-days reminder</option>
+                        <option value="dayof">Day-of reminder</option>
+                        <option value="thankyou">Post-event thank-you</option>
+                    </select>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+                    <button class="btn btn-outline" id="populate-send-template">Populate template</button>
+                    <label style="margin-left:8px;"><input type="checkbox" id="send-to-registered"> Send to registered participants</label>
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" id="send-to-all"> Send to all participants</label>
+                </div>
+                <div class="form-group">
+                    <label for="send-email-list">Or enter comma-separated emails</label>
+                    <input id="send-email-list" placeholder="alice@example.com, bob@example.com">
+                </div>
+                <div class="form-group">
+                    <label for="send-subject">Subject</label>
+                    <input id="send-subject">
+                </div>
+                <div class="form-group">
+                    <label for="send-body">Message</label>
+                    <textarea id="send-body" rows="6"></textarea>
+                </div>
+                <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
+                    <button class="btn btn-outline" id="cancel-send-email">Cancel</button>
+                    <button class="btn btn-primary" id="do-send-email">Send Email</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
-
-

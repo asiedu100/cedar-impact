@@ -37,7 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'invites',
+    # invites app removed; admin onboarding now uses admin code
 ]
 
 MIDDLEWARE = [
@@ -122,6 +122,14 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Admin code for quick executive creation (server-side). Change for production or set via env var.
 import os
-ADMIN_CODE = os.environ.get('CEDAR_ADMIN_CODE', 'CEDAR-ADMIN-2025')
+ADMIN_CODE = os.environ.get('CEDAR_ADMIN_CODE', 'ADMIN-CEDAR')
+# Email configuration: prefer SMTP when env vars are provided, otherwise fall back to console backend
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 25) or 25)
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'False').lower() in ('1', 'true', 'yes')
+EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'False').lower() in ('1', 'true', 'yes')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'no-reply@networkinghub.local')
