@@ -16,7 +16,10 @@ SECRET_KEY = os.environ.get(
 
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost 127.0.0.1').split()
+ALLOWED_HOSTS = os.environ.get(
+    'DJANGO_ALLOWED_HOSTS',
+    'localhost 127.0.0.1 networking-hub-backend.onrender.com cedarimpact.netlify.app'
+).split()
 
 # -----------------------------
 # Applications
@@ -28,10 +31,17 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # add your apps here
+    # Third-party
+    'corsheaders',
+    # Your apps
+    # 'events',  # uncomment or add your app here if not already
 ]
 
+# -----------------------------
+# Middleware
+# -----------------------------
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # must come before CommonMiddleware
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -63,15 +73,14 @@ WSGI_APPLICATION = 'networking_hub.wsgi.application'
 # -----------------------------
 # Database
 # -----------------------------
+import dj_database_url
+
 DATABASES = {
-    'default': {
-        'ENGINE': os.environ.get('DB_ENGINE', 'django.db.backends.sqlite3'),
-        'NAME': os.environ.get('DB_NAME', BASE_DIR / 'db.sqlite3'),
-        'USER': os.environ.get('DB_USER', ''),
-        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-        'HOST': os.environ.get('DB_HOST', ''),
-        'PORT': os.environ.get('DB_PORT', ''),
-    }
+    'default': dj_database_url.config(
+        default=os.environ.get('DATABASE_URL'),
+        conn_max_age=600,
+        ssl_require=True
+    )
 }
 
 # -----------------------------
@@ -96,7 +105,7 @@ USE_TZ = True
 # Static files
 # -----------------------------
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'  # for production collectstatic
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # -----------------------------
 # Default primary key field
@@ -104,11 +113,11 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'  # for production collectstatic
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # -----------------------------
-# Email configuration (safe and flexible)
+# Email configuration
 # -----------------------------
 EMAIL_BACKEND = os.environ.get(
     'EMAIL_BACKEND',
-    'django.core.mail.backends.console.EmailBackend'  # fallback for local dev
+    'django.core.mail.backends.console.EmailBackend'
 )
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 25) or 25)
@@ -119,6 +128,15 @@ EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'False').lower() in ('1', 'true'
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'no-reply@networkinghub.local')
 
 # -----------------------------
-# Admin / App custom settings
+# Custom settings
 # -----------------------------
 ADMIN_CODE = os.environ.get('CEDAR_ADMIN_CODE', 'ADMIN-CEDAR')
+
+# -----------------------------
+# CORS settings for Netlify frontend
+# -----------------------------
+CORS_ALLOWED_ORIGINS = [
+    "https://cedarimpact.netlify.app",  # your deployed frontend
+]
+
+CORS_ALLOW_CREDENTIALS = True

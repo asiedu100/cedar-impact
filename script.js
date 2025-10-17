@@ -1,3 +1,4 @@
+const BASE_URL = "https://networking-hub-backend.onrender.com"; // your Render link
 // Networking Hub JavaScript
 class NetworkingHub {
     constructor() {
@@ -115,34 +116,42 @@ class NetworkingHub {
 
     // Event Listeners
     setupEventListeners() {
-        // Navigation
-        document.getElementById('login-btn').addEventListener('click', () => this.showModal('login-modal'));
-        document.getElementById('signup-btn').addEventListener('click', () => this.showModal('signup-modal'));
-        document.getElementById('logout-btn').addEventListener('click', () => this.logout());
-        document.getElementById('get-started').addEventListener('click', () => this.showModal('signup-modal'));
-
-        // Modal controls
-        document.getElementById('close-login').addEventListener('click', () => this.hideModal('login-modal'));
-        document.getElementById('close-signup').addEventListener('click', () => this.hideModal('signup-modal'));
-        document.getElementById('close-create-event').addEventListener('click', () => this.hideModal('create-event-modal'));
-
-        // Form switches
-        document.getElementById('switch-to-signup').addEventListener('click', (e) => {
-            e.preventDefault();
-            this.hideModal('login-modal');
-            this.showModal('signup-modal');
+        // Navigation (guarded)
+        const navIds = [
+            ['login-btn', () => this.showModal('login-modal')],
+            ['signup-btn', () => this.showModal('signup-modal')],
+            ['logout-btn', () => this.logout()],
+            ['get-started', () => this.showModal('signup-modal')]
+        ];
+        navIds.forEach(([id, fn]) => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('click', fn);
+            else console.warn('Missing element for nav listener:', id);
         });
 
-        document.getElementById('switch-to-login').addEventListener('click', (e) => {
-            e.preventDefault();
-            this.hideModal('signup-modal');
-            this.showModal('login-modal');
-        });
+        // Modal controls (guarded)
+        const modalMap = [
+            ['close-login', () => this.hideModal('login-modal')],
+            ['close-signup', () => this.hideModal('signup-modal')],
+            ['close-create-event', () => this.hideModal('create-event-modal')]
+        ];
+        modalMap.forEach(([id, fn]) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); else console.warn('Missing modal control:', id); });
 
-        // Forms
-    document.getElementById('login-form').addEventListener('submit', (e) => this.handleServerLogin(e));
-        document.getElementById('signup-form').addEventListener('submit', (e) => this.handleSignup(e));
-        document.getElementById('create-event-form').addEventListener('submit', (e) => this.handleCreateEvent(e));
+        // Form switches (guarded)
+        const switchToSignup = document.getElementById('switch-to-signup');
+        if (switchToSignup) {
+            switchToSignup.addEventListener('click', (e) => { e.preventDefault(); this.hideModal('login-modal'); this.showModal('signup-modal'); });
+        } else console.warn('Missing switch-to-signup element');
+
+        const switchToLogin = document.getElementById('switch-to-login');
+        if (switchToLogin) {
+            switchToLogin.addEventListener('click', (e) => { e.preventDefault(); this.hideModal('signup-modal'); this.showModal('login-modal'); });
+        } else console.warn('Missing switch-to-login element');
+
+        // Forms (guarded)
+        const loginForm = document.getElementById('login-form'); if (loginForm) loginForm.addEventListener('submit', (e) => this.handleServerLogin(e)); else console.warn('Missing login-form');
+        const signupForm = document.getElementById('signup-form'); if (signupForm) signupForm.addEventListener('submit', (e) => this.handleSignup(e)); else console.warn('Missing signup-form');
+        const createEventForm = document.getElementById('create-event-form'); if (createEventForm) createEventForm.addEventListener('submit', (e) => this.handleCreateEvent(e)); else console.warn('Missing create-event-form');
 
         // initialize remember-me checkbox from persisted preference
         try {
@@ -291,7 +300,8 @@ class NetworkingHub {
         if (!container) return;
         container.innerHTML = '<p>Loading...</p>';
         try {
-            const res = await fetch('/admin/send-history/', { credentials: 'same-origin' });
+            const res = await fetch(`${BASE_URL}/admin/send-history/`, { credentials: 'include' });
+
             if (!res.ok) { container.innerHTML = '<p>Failed to load history</p>'; return; }
             const data = await res.json();
             if (!data.history || !data.history.length) { container.innerHTML = '<p>No history found</p>'; return; }
@@ -333,7 +343,7 @@ class NetworkingHub {
         try {
             const payload = { subject, body };
             if (sendAll) payload.all = true; else payload.emails = emails;
-            const res = await fetch('/admin/send-email/', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const res = await fetch(`${BASE_URL}/admin/send-email/`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             if (res.ok) {
                 const data = await res.json();
                 this.showNotification(`Emails sent: ${data.sent}`, 'success');
@@ -397,7 +407,7 @@ class NetworkingHub {
         const password = document.getElementById('login-password').value;
         if (!email || !password) { this.showNotification('Fill login fields', 'error'); return; }
         try {
-            const res = await fetch('/auth/login/', {
+            const res = await fetch(`${BASE_URL}/auth/login/`, {
                 method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
             });
@@ -471,7 +481,7 @@ class NetworkingHub {
             const payload = { name, email, password, role, phone };
             if (adminCode) payload.admin_code = adminCode;
             try {
-                const res = await fetch('/auth/signup/', {
+                const res = await fetch(`${BASE_URL}/auth/signup/`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
@@ -590,6 +600,25 @@ class NetworkingHub {
         }
         this.saveData();
         this.updateUI();
+        // Update a visible user badge in the nav so login is obvious on mobile
+        try {
+            let badge = document.getElementById('user-badge');
+            if (this.currentUser) {
+                if (!badge) {
+                    badge = document.createElement('div');
+                    badge.id = 'user-badge';
+                    badge.style.marginLeft = '12px';
+                    badge.style.fontWeight = '600';
+                    const navAuth = document.querySelector('.nav-auth') || document.querySelector('.nav-container');
+                    if (navAuth) navAuth.insertBefore(badge, navAuth.firstChild);
+                }
+                badge.textContent = `${this.currentUser.name || this.currentUser.email}`;
+            } else {
+                if (badge && badge.parentElement) badge.parentElement.removeChild(badge);
+            }
+        } catch (e) {
+            console.warn('Could not update user-badge', e);
+        }
     }
 
     // Event Management
@@ -845,20 +874,24 @@ class NetworkingHub {
         const signupBtn = document.getElementById('signup-btn');
         const logoutBtn = document.getElementById('logout-btn');
 
-        if (this.currentUser) {
-            loginBtn.style.display = 'none';
-            signupBtn.style.display = 'none';
-            logoutBtn.style.display = 'inline-block';
-            // enable QR start button when logged in
-            const startBtn = document.getElementById('start-scan');
-            if (startBtn) startBtn.disabled = false;
-        } else {
-            loginBtn.style.display = 'inline-block';
-            signupBtn.style.display = 'inline-block';
-            logoutBtn.style.display = 'none';
-            // disable QR start button for guests
-            const startBtn = document.getElementById('start-scan');
-            if (startBtn) startBtn.disabled = true;
+        try {
+            if (this.currentUser) {
+                if (loginBtn) loginBtn.style.display = 'none';
+                if (signupBtn) signupBtn.style.display = 'none';
+                if (logoutBtn) logoutBtn.style.display = 'inline-block';
+                // enable QR start button when logged in
+                const startBtn = document.getElementById('start-scan');
+                if (startBtn) startBtn.disabled = false;
+            } else {
+                if (loginBtn) loginBtn.style.display = 'inline-block';
+                if (signupBtn) signupBtn.style.display = 'inline-block';
+                if (logoutBtn) logoutBtn.style.display = 'none';
+                // disable QR start button for guests
+                const startBtn = document.getElementById('start-scan');
+                if (startBtn) startBtn.disabled = true;
+            }
+        } catch (e) {
+            console.warn('updateNavigation error', e);
         }
     }
 
@@ -1280,8 +1313,35 @@ class NetworkingHub {
     }
 }
 
-// Initialize the application
-const networkingHub = new NetworkingHub();
+// Initialize the application with an error overlay so failures are visible on phones
+let networkingHub = null;
+try {
+    networkingHub = new NetworkingHub();
+} catch (err) {
+    console.error('Failed to initialize NetworkingHub', err);
+    // Create a visible overlay with the error so mobile users can copy it
+    try {
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.left = '0';
+        overlay.style.top = '0';
+        overlay.style.right = '0';
+        overlay.style.bottom = '0';
+        overlay.style.background = 'rgba(0,0,0,0.85)';
+        overlay.style.color = 'white';
+        overlay.style.zIndex = '999999';
+        overlay.style.padding = '20px';
+        overlay.style.overflow = 'auto';
+        overlay.innerHTML = `<h2 style="margin-top:0">JavaScript error</h2>
+            <p>There was an error initializing the app. This usually means a missing library or a JavaScript error.</p>
+            <pre style="white-space:pre-wrap; color:#ffdddd; background:rgba(0,0,0,0.2); padding:12px; border-radius:8px;">${(err && err.stack) ? err.stack : String(err)}</pre>
+            <p style="opacity:0.9">Open the browser console for more details.</p>`;
+        document.body.appendChild(overlay);
+    } catch (domErr) {
+        // if DOM fails, at least log both errors
+        console.error('Also failed to render error overlay', domErr);
+    }
+}
 
 // Smooth scrolling for navigation links
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
